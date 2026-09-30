@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Map veto</title>
+<title>Valorant Map Veto</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -234,6 +234,41 @@ details.org summary{padding:14px 18px;font-weight:600;cursor:pointer}
 .toss-res{font:800 2rem/1.05 var(--display);margin:8px 0 6px;color:var(--a)}
 .toss-card p.sub{color:var(--muted);margin:0 0 16px}
 .toss [hidden]{display:none}
+/* lobby background */
+:root{--veil:rgba(228,231,235,.74)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--veil:rgba(20,24,32,.66)}}
+:root[data-theme="dark"]{--veil:rgba(20,24,32,.66)}
+body.lobby::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:linear-gradient(var(--veil),var(--veil)),url("assets/lobby-bg.webp") center/cover no-repeat}
+body.lobby .banner h2,body.lobby .top h1{text-shadow:0 1px 12px var(--veil)}
+
+/* final picks */
+.veto-out{animation:vetoOut .55s ease forwards;pointer-events:none}
+@keyframes vetoOut{to{opacity:0;transform:scale(.97) translateY(8px);filter:blur(3px)}}
+.final{margin-top:18px}
+.final-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.final-head h2{font:900 clamp(2rem,5vw,3rem)/.95 var(--display);margin:0;letter-spacing:.01em}
+.final-head p{margin:4px 0 0;color:var(--muted)}
+.final-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px}
+.fcard{--h:200;position:relative;aspect-ratio:16/11;border-radius:14px;overflow:hidden;isolation:isolate;
+  background:hsl(var(--h) var(--card-s) var(--card-l));color:var(--card-ink);box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.fcard svg.topo{position:absolute;inset:0;width:100%;height:100%;color:hsl(var(--h) 38% var(--topo-l));z-index:-2}
+.fcard::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(0,0,0,0) 35%,rgba(0,0,0,.55) 100%)}
+.fcard .ftop{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;gap:8px;padding:10px 14px;font-size:.8rem;font-weight:600}
+.fcard .fno{font:900 1.1rem/1 var(--display);letter-spacing:.08em;text-transform:uppercase}
+.fcard .fby{background:var(--tc,var(--card-ink));color:#fff;border-radius:999px;padding:2px 10px}
+.fcard.decider .fby{background:var(--card-ink);color:hsl(var(--h) var(--card-s) var(--card-l))}
+.fcard .fname{position:absolute;left:14px;right:14px;top:38%;transform:translateY(-50%);font:900 clamp(2.4rem,6vw,3.6rem)/.9 var(--display);letter-spacing:.02em;text-transform:uppercase;overflow-wrap:anywhere}
+.fsides{position:absolute;left:0;right:0;bottom:0;display:grid;grid-template-columns:1fr 1fr}
+.fside{padding:10px 14px 12px;color:#fff;background:linear-gradient(0deg,var(--tc),color-mix(in srgb,var(--tc) 70%,transparent));min-width:0}
+.fside.A{--tc:var(--a)} .fside.B{--tc:var(--b);text-align:right}
+.fside .ft{display:block;font-size:.8rem;font-weight:600;opacity:.92;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fside .fs{display:block;font:900 clamp(1.5rem,3.4vw,2rem)/1 var(--display);letter-spacing:.06em;text-transform:uppercase}
+.final.enter .final-head{animation:finIn .5s ease both}
+.final.enter .fcard{animation:cardIn .6s cubic-bezier(.2,.7,.3,1) both;animation-delay:calc(.15s + var(--i) * .14s)}
+@keyframes finIn{from{opacity:0;transform:translateY(-10px)}}
+@keyframes cardIn{from{opacity:0;transform:translateY(24px) scale(.94)}}
+@media (prefers-reduced-motion:reduce){.veto-out,.final.enter .fcard,.final.enter .final-head{animation:none}}
 @media (prefers-reduced-motion:reduce){.coin,.coin-hop{animation:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -241,7 +276,7 @@ details.org summary{padding:14px 18px;font-weight:600;cursor:pointer}
 <body>
 <main class="wrap">
   <header class="top">
-    <h1>Map veto</h1>
+    <h1>Valorant Map Veto</h1>
     <div class="meta" id="meta"></div>
   </header>
   <div id="app"><div class="empty"><h2>Connecting</h2><p>Loading the live veto room.</p></div></div>
@@ -288,7 +323,8 @@ details.org summary{padding:14px 18px;font-weight:600;cursor:pointer}
     state:null, exists:null, device:getDevice(), uid:null,
     canEdit:false, canWrite:null, busy:false, selected:null, watchers:0,
     pendingOrg:false, pendingPlates:false, ready:false, noSync:false,
-    seenFlipAt:undefined, code:null, unsub:null, lobbyRoom:null, homeReady:false
+    seenFlipAt:undefined, code:null, unsub:null, lobbyRoom:null, homeReady:false,
+    view:null, showVeto:false, finalT:null, lastIdx:null
   };
 
   const $ = s => document.querySelector(s);
@@ -412,6 +448,7 @@ details.org summary{padding:14px 18px;font-weight:600;cursor:pointer}
 
   function render(){
     renderMeta();
+    document.body.classList.toggle("lobby", !!(S.code && S.ready && S.exists && !S.noSync));
     const app = $("#app");
     if (S.noSync){
       app.innerHTML = `<div class="empty"><h2>Live sync isn't set up</h2><p>Add your Firebase config near the top of index.html, then reload. Picks and bans sync between devices through it.</p></div>`;
@@ -429,11 +466,15 @@ details.org summary{padding:14px 18px;font-weight:600;cursor:pointer}
           <button class="btn ghost" data-act="home">Home</button>
         </section>
         <section class="board" id="board" aria-label="Teams"></section>
-        <section class="banner" id="banner" aria-live="polite"></section>
-        <nav class="track" id="track" aria-label="Veto order"></nav>
-        <section class="grid" id="grid" aria-label="Map pool"></section>
-        <section id="plan"></section>
+        <div id="vetoView">
+          <section class="banner" id="banner" aria-live="polite"></section>
+          <nav class="track" id="track" aria-label="Veto order"></nav>
+          <section class="grid" id="grid" aria-label="Map pool"></section>
+          <section id="plan"></section>
+        </div>
+        <section class="final" id="finalView" aria-live="polite" hidden></section>
         <div id="orgSlot"></div>`;
+      S.view = null;
     }
     const st = S.state, d = derive(st), seat = mySeat(st);
     if (S.selected && (!d.step || d.step.t==="side" || !d.info[S.selected] || d.info[S.selected].status!=="open")) S.selected = null;
@@ -442,7 +483,73 @@ details.org summary{padding:14px 18px;font-weight:600;cursor:pointer}
     renderTrack(st, d);
     renderGrid(st, d, seat);
     renderPlan(st, d);
+    renderFinal(st, d);
     renderOrg(st, d);
+    setView(d);
+  }
+
+  // Veto view vs final picks view. When the last choice lands while the veto is
+  // on screen, hold it briefly, fade it out, then bring in the final picks.
+  function setView(d){
+    const veto = $("#vetoView"), fin = $("#finalView");
+    if (!d.done) S.showVeto = false;
+    const want = d.done && !S.showVeto ? "final" : "veto";
+    if (want === S.view){ S.lastIdx = d.idx; return; }
+    clearTimeout(S.finalT);
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const show = (v, animate) => {
+      S.view = v;
+      veto.classList.remove("veto-out");
+      veto.hidden = v !== "veto";
+      fin.hidden = v !== "final";
+      fin.classList.toggle("enter", !!animate);
+    };
+    const justDone = d.done && S.lastIdx !== null && S.lastIdx < d.idx;
+    S.lastIdx = d.idx;
+    if (want === "final" && S.view === "veto" && justDone && !reduce){
+      S.view = "final";
+      const code = S.code;
+      S.finalT = setTimeout(() => {
+        if (S.code !== code || S.view !== "final") return;
+        veto.classList.add("veto-out");
+        S.finalT = setTimeout(() => {
+          if (S.code !== code || S.view !== "final") return;
+          show("final", true);
+          window.scrollTo({top:0, behavior:"smooth"});
+        }, 550);
+      }, 1400);
+      return;
+    }
+    show(want, false);
+  }
+
+  function renderFinal(st, d){
+    const el = $("#finalView");
+    if (!d.done){ el.innerHTML = ""; return; }
+    const played = d.pool.filter(m => ["picked","decider"].includes((d.info[m.id]||{}).status))
+      .sort((a,b)=>d.info[a.id].order - d.info[b.id].order);
+    const sideOf = (inf, t) => {
+      if (!inf.side) return "";
+      const s = inf.side.team === t ? inf.side.side : (inf.side.side === "attack" ? "defend" : "attack");
+      return s === "attack" ? "Attack" : "Defend";
+    };
+    const half = (inf, t) => `<div class="fside ${t}"><span class="ft">${esc(teamName(st,t))}</span>
+      <span class="fs">${sideOf(inf,t) || "TBD"}</span></div>`;
+    el.innerHTML = `<div class="final-head"><div><h2>Final picks</h2>
+        <p>${esc(teamName(st,"A"))} vs ${esc(teamName(st,"B"))} · ${FORMAT_LABEL[d.fmt]||"Bo3"}</p></div>
+        <button class="btn" data-act="showveto">Show full veto</button></div>
+      <div class="final-grid">${played.map((m,i) => {
+        const inf = d.info[m.id], hue = Number.isFinite(m.hue) ? m.hue : 200;
+        const dec = inf.status === "decider";
+        const by = dec ? "Decider" : `${esc(teamName(st,inf.team))}'s pick`;
+        const tc = dec ? "" : `;--tc:var(--${inf.team.toLowerCase()})`;
+        return `<article class="fcard${dec?" decider":""}" style="--h:${hue};--i:${i}${tc}" aria-label="Map ${inf.order}: ${esc(m.name)}">
+          ${topo(m.id)}
+          <div class="ftop"><span class="fno">Map ${inf.order}</span><span class="fby">${by}</span></div>
+          <div class="fname">${esc(m.name)}</div>
+          <div class="fsides">${half(inf,"A")}${half(inf,"B")}</div>
+        </article>`;
+      }).join("")}</div>`;
   }
 
   function renderHome(){
@@ -540,6 +647,7 @@ details.org summary{padding:14px 18px;font-weight:600;cursor:pointer}
     const t = $("#toss"); if (t) t.remove();
     S.code = null; S.ref = null; S.lockRef = null; S.state = null; S.exists = null;
     S.ready = false; S.watchers = 0; S.selected = null; S.seenFlipAt = undefined;
+    clearTimeout(S.finalT); S.view = null; S.showVeto = false; S.lastIdx = null;
   }
 
   function enterLobby(code){
@@ -671,6 +779,7 @@ details.org summary{padding:14px 18px;font-weight:600;cursor:pointer}
     } else if (d.done){
       h = `Veto complete`;
       p = `The match plan is below.`;
+      right = `<button class="btn solid" data-act="showfinal">Show final picks</button>`;
     } else {
       const s = d.step, who = teamName(st, s.team);
       tc = s.team === "A" ? "var(--a)" : "var(--b)";
@@ -962,6 +1071,8 @@ details.org summary{padding:14px 18px;font-weight:600;cursor:pointer}
     else if (a === "free"){ ask(`Free the ${seatName(S.state,slot)} seat?`, "The device holding it loses control.", "Free seat").then(ok => ok && freeSeat(slot)); }
     else if (a === "flip") flipCoin();
     else if (a === "reflip"){ ask("Flip the coin again?", "Team A and Team B may swap.", "Flip again").then(ok => ok && flipCoin()); }
+    else if (a === "showveto"){ S.showVeto = true; render(); }
+    else if (a === "showfinal"){ S.showVeto = false; render(); window.scrollTo({top:0, behavior:"smooth"}); }
     else if (a === "closetoss"){ const o = $("#toss"); if (o) o.remove(); }
     else if (a === "select"){ S.selected = S.selected === b.dataset.map ? null : b.dataset.map; render(); }
     else if (a === "deselect"){ S.selected = null; render(); }
