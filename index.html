@@ -241,6 +241,12 @@ details.org summary{padding:14px 18px;font-weight:600;cursor:pointer}
 body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:linear-gradient(var(--veil),var(--veil)),url("assets/lobby-bg.webp") center/cover no-repeat}
 .banner h2,.top h1{text-shadow:0 1px 12px var(--veil)}
+/* solid centre column so the content reads clearly over the artwork */
+:root{--panel:rgba(232,235,239,.9)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--panel:rgba(17,21,28,.9)}}
+:root[data-theme="dark"]{--panel:rgba(17,21,28,.9)}
+.wrap{min-height:100vh;background:var(--panel);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  box-shadow:0 0 0 1px var(--line),0 0 60px rgba(0,0,0,.45)}
 
 /* final picks */
 .veto-out{animation:vetoOut .55s ease forwards;pointer-events:none}
