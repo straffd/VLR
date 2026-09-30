@@ -234,13 +234,13 @@ details.org summary{padding:14px 18px;font-weight:600;cursor:pointer}
 .toss-res{font:800 2rem/1.05 var(--display);margin:8px 0 6px;color:var(--a)}
 .toss-card p.sub{color:var(--muted);margin:0 0 16px}
 .toss [hidden]{display:none}
-/* lobby background */
+/* page background */
 :root{--veil:rgba(228,231,235,.74)}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--veil:rgba(20,24,32,.66)}}
 :root[data-theme="dark"]{--veil:rgba(20,24,32,.66)}
-body.lobby::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:linear-gradient(var(--veil),var(--veil)),url("assets/lobby-bg.webp") center/cover no-repeat}
-body.lobby .banner h2,body.lobby .top h1{text-shadow:0 1px 12px var(--veil)}
+.banner h2,.top h1{text-shadow:0 1px 12px var(--veil)}
 
 /* final picks */
 .veto-out{animation:vetoOut .55s ease forwards;pointer-events:none}
@@ -448,7 +448,6 @@ body.lobby .banner h2,body.lobby .top h1{text-shadow:0 1px 12px var(--veil)}
 
   function render(){
     renderMeta();
-    document.body.classList.toggle("lobby", !!(S.code && S.ready && S.exists && !S.noSync));
     const app = $("#app");
     if (S.noSync){
       app.innerHTML = `<div class="empty"><h2>Live sync isn't set up</h2><p>Add your Firebase config near the top of index.html, then reload. Picks and bans sync between devices through it.</p></div>`;
