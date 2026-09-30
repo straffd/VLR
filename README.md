@@ -1,2 +1,0 @@
-# VLR
-Map Ban System
