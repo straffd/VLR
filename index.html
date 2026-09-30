@@ -478,7 +478,11 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
     $("#meta").innerHTML = bits.join("");
   }
 
-  function focusInside(el){ return el && el.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName); }
+  // True while the user is typing in a field inside el (checkboxes don't count, so they redraw straight away)
+  function focusInside(el){
+    const a = document.activeElement;
+    return !!(el && a && el.contains(a) && /INPUT|SELECT/.test(a.tagName) && a.type !== "checkbox");
+  }
 
   function render(){
     renderMeta();
@@ -897,6 +901,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
     S.pendingOrg = false;
     const open = existing ? existing.open : false;
     const locked = d.actions.length > 0;
+    const act = document.activeElement, refocus = existing && existing.contains(act) && act.dataset.field === "mapon" ? act.dataset.name : null;
     // Every known map, plus any older custom maps still in this lobby's pool
     const inPool = n => d.pool.some(m => m.name.toLowerCase() === n.toLowerCase());
     const extra = d.pool.map(m => m.name).filter(n => !DEFAULT_MAPS.some(k => k.toLowerCase() === n.toLowerCase()));
@@ -933,6 +938,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
           <p class="note" style="margin-top:8px">Anyone with the lobby link can watch. The first two devices to join become the teams.</p>
         </div>
       </div></details>`;
+    if (refocus){ const box = [...slot.querySelectorAll("[data-field=mapon]")].find(x => x.dataset.name === refocus); if (box) box.focus({preventScroll:true}); }
   }
 
   // ---------- coin toss overlay ----------
