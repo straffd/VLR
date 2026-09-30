@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Map veto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E4E7EB; --surface:#F5F6F8; --surface-2:#EBEEF2; --ink:#141922; --muted:#586170; --line:#C7CDD6;
+  --a:#0C8A8C; --a-soft:rgba(12,138,140,.14); --b:#C93A4E; --b-soft:rgba(201,58,78,.13);
+  --danger:#D32F2F; --card-s:26%; --card-l:80%; --topo-l:62%; --card-ink:#141922;
+  --display:"Big Shoulders Display","Arial Narrow","Roboto Condensed",Impact,sans-serif;
+  --body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#191E27; --surface:#222935; --surface-2:#1D232D; --ink:#ECEEF2; --muted:#98A1B0; --line:#333C4A;
+    --a:#3CC4C6; --a-soft:rgba(60,196,198,.15); --b:#F26B7D; --b-soft:rgba(242,107,125,.15);
+    --danger:#E5484D; --card-s:30%; --card-l:24%; --topo-l:40%; --card-ink:#F1F2F5; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#191E27; --surface:#222935; --surface-2:#1D232D; --ink:#ECEEF2; --muted:#98A1B0; --line:#333C4A;
+  --a:#3CC4C6; --a-soft:rgba(60,196,198,.15); --b:#F26B7D; --b-soft:rgba(242,107,125,.15);
+  --danger:#E5484D; --card-s:30%; --card-l:24%; --topo-l:40%; --card-ink:#F1F2F5; color-scheme:dark;
+}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{cursor:default}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;padding:20px clamp(14px,3vw,32px) 56px}
+
+/* header */
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.top h1{font:900 clamp(2.4rem,6vw,3.6rem)/.9 var(--display);margin:0;letter-spacing:.01em}
+.top .meta{display:flex;gap:10px;align-items:center;color:var(--muted);font-size:.9rem;flex-wrap:wrap}
+.pill{border:1px solid var(--line);border-radius:999px;padding:3px 11px;background:var(--surface)}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--a);margin-right:6px;vertical-align:1px}
+
+/* scoreboard */
+.board{display:grid;grid-template-columns:1fr auto 1fr;gap:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.plate{padding:16px 18px;display:flex;flex-direction:column;gap:8px;min-width:0;position:relative}
+.plate.B{text-align:right;align-items:flex-end}
+.plate::before{content:"";position:absolute;inset:0 auto 0 0;width:5px;background:var(--tc)}
+.plate.B::before{inset:0 0 0 auto}
+.plate.A{--tc:var(--a);--tsoft:var(--a-soft)} .plate.B{--tc:var(--b);--tsoft:var(--b-soft)}
+.plate.turn{background:var(--tsoft)}
+.plate .tname{font:800 clamp(1.5rem,3.2vw,2.1rem)/1 var(--display);margin:0;overflow-wrap:anywhere}
+.plate .tname-input{font:800 clamp(1.4rem,3vw,1.9rem)/1.1 var(--display);background:transparent;border:0;border-bottom:1px dashed var(--line);padding:2px 0;width:100%;max-width:320px}
+.plate.B .tname-input{text-align:right}
+.plate .seat{font-size:.88rem;color:var(--muted)}
+.plate .seat strong{color:var(--tc);font-weight:600}
+.plate .row{display:flex;gap:8px;flex-wrap:wrap}
+.plate.B .row{justify-content:flex-end}
+.tally{font-size:.82rem;color:var(--muted)}
+.vs{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px 18px;border-inline:1px solid var(--line);min-width:120px;text-align:center}
+.vs .fmt{font:900 2.2rem/1 var(--display)}
+.vs small{color:var(--muted);font-size:.78rem}
+
+.btn{border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:7px 14px;font-weight:600;font-size:.88rem}
+.btn:hover:not(:disabled){border-color:var(--ink)}
+.btn.solid{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.team{background:var(--tc);border-color:var(--tc);color:#fff}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.45}
+.link{background:none;border:0;padding:0;color:var(--muted);text-decoration:underline;font-size:.82rem}
+
+/* turn banner */
+.banner{margin:18px 0 12px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;min-height:52px}
+.banner h2{font:800 clamp(1.6rem,4vw,2.4rem)/1.05 var(--display);margin:0}
+.banner h2 .who{color:var(--tc)}
+.banner p{margin:2px 0 0;color:var(--muted)}
+.confirm{display:flex;gap:8px;align-items:center}
+
+/* sequence */
+.track{display:flex;gap:6px;overflow-x:auto;padding:4px 2px 10px;margin-bottom:14px;scrollbar-width:thin}
+.step{flex:0 0 auto;min-width:92px;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--surface);font-size:.78rem;line-height:1.25;position:relative}
+.step.A{--tc:var(--a)} .step.B{--tc:var(--b)}
+.step .k{display:flex;gap:6px;align-items:baseline;color:var(--muted)}
+.step .k b{color:var(--tc);font-weight:700}
+.step .v{font:700 1rem/1.15 var(--display);margin-top:2px;white-space:nowrap;letter-spacing:.02em;color:var(--ink)}
+.step.done{opacity:.72}
+.step.now{border-color:var(--tc);box-shadow:inset 0 0 0 1px var(--tc);opacity:1}
+.step.decider{border-style:dashed}
+
+/* map grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.card{--h:200;position:relative;aspect-ratio:3/4;border-radius:12px;overflow:hidden;border:0;padding:0;text-align:left;
+  background:hsl(var(--h) var(--card-s) var(--card-l));color:var(--card-ink);isolation:isolate;
+  transition:transform .15s ease, filter .25s ease, box-shadow .15s ease}
+.card svg.topo{position:absolute;inset:0;width:100%;height:100%;color:hsl(var(--h) 38% var(--topo-l));z-index:-1}
+.card .nm{position:absolute;left:12px;right:12px;bottom:10px;font:900 clamp(1.7rem,3.4vw,2.3rem)/.92 var(--display);letter-spacing:.01em;overflow-wrap:anywhere}
+.card .tag{position:absolute;left:0;right:0;top:0;padding:7px 12px;font-size:.78rem;font-weight:600;display:flex;justify-content:space-between;gap:6px}
+.card.sel:not(:disabled){cursor:pointer}
+.card.sel:not(:disabled):hover{transform:translateY(-3px)}
+.card.chosen{box-shadow:0 0 0 3px var(--bg),0 0 0 6px var(--tc);transform:translateY(-3px)}
+.card.banned{filter:grayscale(1) contrast(.85);opacity:.5}
+.card.banned::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(-45deg,transparent 0 9px,rgba(0,0,0,.28) 9px 11px);z-index:0}
+.card.banned .nm{text-decoration:line-through;text-decoration-thickness:3px}
+.card.banned .tag{background:rgba(0,0,0,.55);color:#fff;z-index:1}
+.card.picked{box-shadow:inset 0 0 0 4px var(--tc)}
+.card.picked .tag{background:var(--tc);color:#fff}
+.card.decider{box-shadow:inset 0 0 0 3px var(--card-ink)}
+.card.decider .tag{background:var(--card-ink);color:hsl(var(--h) var(--card-s) var(--card-l))}
+.card .side{position:absolute;left:12px;bottom:calc(10px + 2.4rem);font-size:.78rem;font-weight:600;background:rgba(0,0,0,.5);color:#fff;border-radius:4px;padding:2px 7px}
+.card.A{--tc:var(--a)} .card.B{--tc:var(--b)}
+.card.waiting{cursor:default}
+
+/* side picker */
+.sidepick{display:flex;gap:10px;flex-wrap:wrap}
+.sidepick .btn{font:800 1.3rem/1 var(--display);padding:12px 26px;letter-spacing:.03em}
+
+/* plan */
+.plan{margin-top:26px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:6px 18px}
+.plan h3{font:800 1.5rem/1 var(--display);margin:12px 0 6px}
+.plan ol{list-style:none;margin:0;padding:0}
+.plan li{display:grid;grid-template-columns:70px minmax(0,1fr) auto;gap:12px;align-items:baseline;padding:10px 0;border-top:1px solid var(--line)}
+.plan li:first-child{border-top:0}
+.plan .no{color:var(--muted);font-size:.85rem}
+.plan .mp{font:800 1.45rem/1 var(--display)}
+.plan .info{color:var(--muted);font-size:.86rem;text-align:right}
+.plan .info b{font-weight:600}
+.cA{color:var(--a)} .cB{color:var(--b)}
+
+/* organizer */
+details.org{margin-top:26px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2)}
+details.org summary{padding:14px 18px;font-weight:600;cursor:pointer}
+.org-body{padding:0 18px 18px;display:grid;gap:18px}
+.org h4{margin:0 0 8px;font-size:.95rem}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:7px 16px;font-weight:600}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.pool{display:grid;gap:6px;max-width:520px}
+.pool-row{display:grid;grid-template-columns:28px minmax(0,1fr) 110px auto;gap:8px;align-items:center}
+.swatch{width:28px;height:28px;border-radius:6px;background:hsl(var(--h) 40% 50%)}
+.pool-row input[type=text]{border:1px solid var(--line);border-radius:6px;padding:6px 9px;background:var(--surface);min-width:0}
+.pool-row input[type=range]{width:100%;accent-color:var(--ink)}
+.note{color:var(--muted);font-size:.85rem;margin:0}
+.org-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+.empty{padding:48px 20px;text-align:center;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.empty h2{font:800 2rem/1 var(--display);margin:0 0 8px}
+.empty p{color:var(--muted);margin:0 auto 16px;max-width:52ch}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:.9rem;z-index:10;max-width:90vw}
+.toast[hidden]{display:none}
+
+@media (max-width:640px){
+  .board{grid-template-columns:1fr 1fr}
+  .vs{grid-column:1/-1;grid-row:1;flex-direction:row;gap:10px;border-inline:0;border-bottom:1px solid var(--line);padding:8px}
+  .vs .fmt{font-size:1.6rem}
+  .plate{padding:12px 14px}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:9px}
+  .plan li{grid-template-columns:52px minmax(0,1fr)}
+  .plan .info{grid-column:2;text-align:left}
+  .pool-row{grid-template-columns:28px minmax(0,1fr) auto}
+  .pool-row input[type=range]{grid-column:2/-1}
+}
+
+/* join form + neutral seats */
+.plate.N{--tc:var(--line);--tsoft:transparent}
+.plate.N:last-child{text-align:right;align-items:flex-end}
+.plate.N:last-child::before{inset:0 0 0 auto}
+.plate.N:last-child .row{justify-content:flex-end}
+.plate.N:last-child .tname-input{text-align:right}
+.plate .lbl{font-size:.8rem;color:var(--muted)}
+.plate .tname.open{color:var(--muted)}
+.join{display:flex;gap:8px;flex-wrap:wrap;width:100%;max-width:360px}
+.plate.B .join,.plate.N:last-child .join{justify-content:flex-end;margin-left:auto}
+.join input{flex:1 1 150px;min-width:0;border:1px solid var(--line);border-radius:8px;padding:8px 11px;background:var(--surface-2)}
+.vs .toss-won{font-size:.78rem;color:var(--muted);margin-top:4px;max-width:14ch;overflow-wrap:anywhere}
+
+
+.btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
+.btn.danger:hover:not(:disabled){filter:brightness(1.08);border-color:var(--danger)}
+.ask-card{text-align:left}
+.ask-card h2{font:800 1.8rem/1.05 var(--display);margin:0 0 6px}
+.ask-row{display:flex;gap:8px;justify-content:flex-end}
+
+/* home + lobby bar */
+.home{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:8px}
+.home-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px 22px 24px;display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.home-card h2{font:800 2rem/1 var(--display);margin:0}
+.home-card p{margin:0 0 12px;color:var(--muted);max-width:44ch}
+.home-card .note{margin:10px 0 0}
+.btn.big{font-size:1rem;padding:11px 20px}
+.code-row{display:flex;gap:8px;flex-wrap:wrap;width:100%}
+.code-input{flex:1 1 170px;min-width:0;font:900 2rem/1 var(--display);letter-spacing:.22em;text-transform:uppercase;padding:8px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+.code-input::placeholder{color:var(--line)}
+.recent{margin-top:22px}
+.recent h3{font-size:.95rem;margin:0}
+.recent-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.recent .note{margin-top:10px}
+.btn.small{padding:5px 12px;font-size:.82rem}
+.recent-list{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-width:560px}
+.recent-list li{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.recent-open{flex:1;min-width:0;display:flex;justify-content:space-between;align-items:baseline;gap:12px;border:0;background:transparent;padding:10px 14px;text-align:left}
+.recent-open:hover{background:var(--surface-2)}
+.recent-open .rl{font:800 1.25rem/1.1 var(--display);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.recent-open .rt{color:var(--muted);font-size:.8rem;white-space:nowrap}
+.chip-group{display:inline-flex;align-items:stretch;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.chip-group .chip{border:0;border-radius:0}
+.chip-x{border:0;border-left:1px solid var(--line);background:transparent;color:var(--muted);padding:0 10px;display:grid;place-items:center}
+.chip-x:hover{background:var(--danger);color:#fff}
+.recent-row{display:flex;gap:8px;flex-wrap:wrap}
+.chip{font:800 1.15rem/1 var(--display);letter-spacing:.14em;padding:8px 14px}
+.lobbybar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.codebox{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.codebox .lbl{color:var(--muted);font-size:.85rem}
+.codebox .code{font:900 clamp(2rem,5vw,2.8rem)/1 var(--display);letter-spacing:.18em}
+.btn.share{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 11px;font-size:.82rem;font-weight:600;background:var(--surface)}
+.share-box{width:100%;resize:none;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:var(--surface-2);font:500 .9rem/1.4 var(--body);margin-bottom:14px}
+/* coin toss */
+.toss{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:20px;background:rgba(10,14,20,.62);backdrop-filter:blur(4px)}
+.toss-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:26px 28px 24px;width:min(420px,100%);text-align:center}
+.toss-k{margin:0 0 6px;color:var(--muted);font-weight:600}
+.coin-stage{height:190px;display:grid;place-items:center;perspective:900px}
+.coin-hop{animation:hop 2.6s cubic-bezier(.3,.7,.4,1) both}
+.coin{position:relative;width:132px;height:132px;transform-style:preserve-3d;animation:spin 2.6s cubic-bezier(.2,.6,.25,1) both;transform:rotateY(var(--end))}
+.face{position:absolute;inset:0;border-radius:50%;display:grid;place-items:center;padding:16px;backface-visibility:hidden;
+  background:radial-gradient(circle at 35% 30%,#F6E7B0,#D4A93F 55%,#9C7420);box-shadow:inset 0 0 0 6px rgba(255,255,255,.28),inset 0 0 0 9px rgba(120,86,20,.5);color:#3B2A06}
+.face span{font:900 1.35rem/1 var(--display);overflow-wrap:anywhere}
+.face.f2{transform:rotateY(180deg);background:radial-gradient(circle at 35% 30%,#EEF0F3,#AEB5C0 55%,#6D7584);color:#1E232B;box-shadow:inset 0 0 0 6px rgba(255,255,255,.3),inset 0 0 0 9px rgba(40,46,56,.45)}
+@keyframes spin{from{transform:rotateY(0)}to{transform:rotateY(var(--end))}}
+@keyframes hop{0%{transform:translateY(0) scale(1)}45%{transform:translateY(-70px) scale(1.12)}100%{transform:translateY(0) scale(1)}}
+.toss-res{font:800 2rem/1.05 var(--display);margin:8px 0 6px;color:var(--a)}
+.toss-card p.sub{color:var(--muted);margin:0 0 16px}
+.toss [hidden]{display:none}
+@media (prefers-reduced-motion:reduce){.coin,.coin-hop{animation:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="top">
+    <h1>Map veto</h1>
+    <div class="meta" id="meta"></div>
+  </header>
+  <div id="app"><div class="empty"><h2>Connecting</h2><p>Loading the live veto room.</p></div></div>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<!-- Firebase (realtime database for lobbies) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+  // Paste your Firebase web app config here (Firebase console > Project settings > Your apps)
+  const FIREBASE_CONFIG = {
+    apiKey: "PASTE_YOUR_API_KEY",
+    authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
+    projectId: "PASTE_YOUR_PROJECT_ID",
+    storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
+    messagingSenderId: "PASTE_SENDER_ID",
+    appId: "PASTE_APP_ID"
+  };
+</script>
+<script>
+(() => {
+  // ---------- constants ----------
+  const DEFAULT_MAPS = ["Ascent","Bind","Haven","Lotus","Split","Sunset","Icebox"];
+  const HUES = [38,12,205,300,150,24,190,265,95,340];
+  const MIN_MAPS = {bo1:2, bo3:3, bo5:5};
+  const FORMAT_LABEL = {bo1:"Bo1", bo3:"Bo3", bo5:"Bo5"};
+  const other = t => t === "A" ? "B" : "A";
+  const otherSlot = s => s === "1" ? "2" : "1";
+  const EMPTY_SEAT = {name:"", device:null, uid:null};
+
+  function getDevice(){
+    let id = null;
+    try { id = localStorage.getItem("veto-device"); } catch(e){}
+    if (!id){
+      id = "d" + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
+      try { localStorage.setItem("veto-device", id); } catch(e){}
+    }
+    return id;
+  }
+
+  const S = {
+    db:null, user:null, room:null, ref:null, lockRef:null,
+    state:null, exists:null, device:getDevice(), uid:null,
+    canEdit:false, canWrite:null, busy:false, selected:null, watchers:0,
+    pendingOrg:false, pendingPlates:false, ready:false, noSync:false,
+    seenFlipAt:undefined, code:null, unsub:null, lobbyRoom:null, homeReady:false
+  };
+
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  let toastT;
+  function toast(msg){ const t=$("#toast"); t.textContent=msg; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true,3200); }
+  const uid6 = () => "m" + Math.random().toString(36).slice(2,8);
+  function coin(){ try { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % 2 ? "1" : "2"; } catch(e){ return Math.random() < .5 ? "1" : "2"; } }
+
+  // ---------- seats, toss and teams ----------
+  const seatRec = (st, s) => ((st && st.seats) || {})[s] || {};
+  const flipped = st => !!(st && st.flip && st.flip.winner);
+  function teamSlot(st, t){ if (!flipped(st)) return null; return t === "A" ? st.flip.winner : otherSlot(st.flip.winner); }
+  const teamRec = (st, t) => { const s = teamSlot(st, t); return s ? seatRec(st, s) : {}; };
+  const teamName = (st, t) => teamRec(st, t).name || ("Team " + t);
+  const seatName = (st, s) => seatRec(st, s).name || ("Seat " + s);
+  function mySlot(st){ for (const s of ["1","2"]) if (seatRec(st, s).device === S.device) return s; return null; }
+  function mySeat(st){ const s = mySlot(st); if (!s || !flipped(st)) return null; return teamSlot(st, "A") === s ? "A" : "B"; }
+  function isHost(){
+    const h = S.state && S.state.host;
+    return S.canEdit || !!(h && (h.device === S.device || (S.uid && h.uid === S.uid)));
+  }
+  const bothIn = st => !!(seatRec(st,"1").device && seatRec(st,"2").device);
+
+  // ---------- veto logic ----------
+  function buildSequence(fmt, n){
+    const s = [];
+    if (n < (MIN_MAPS[fmt] || 2)) return s;
+    const alt = i => i % 2 === 0 ? "A" : "B";
+    if (fmt === "bo1"){
+      for (let i=0;i<n-1;i++) s.push({t:"ban", team:alt(i)});
+      s.push({t:"side", team:alt(n-1), map:"decider"});
+    } else if (fmt === "bo3"){
+      const pre = n >= 5 ? 2 : 0;
+      for (let i=0;i<pre;i++) s.push({t:"ban", team:alt(i)});
+      s.push({t:"pick",team:"A"}); s.push({t:"side",team:"B",map:"last"});
+      s.push({t:"pick",team:"B"}); s.push({t:"side",team:"A",map:"last"});
+      const rest = n - 1 - pre - 2;
+      for (let i=0;i<rest;i++) s.push({t:"ban", team:alt(i)});
+      s.push({t:"side", team: rest > 0 ? alt(rest) : "A", map:"decider"});
+    } else if (fmt === "bo5"){
+      const bans = n - 5;
+      for (let i=0;i<bans;i++) s.push({t:"ban", team:alt(i)});
+      ["A","B","A","B"].forEach(t => { s.push({t:"pick",team:t}); s.push({t:"side",team:other(t),map:"last"}); });
+      s.push({t:"side", team:"B", map:"decider"});
+    }
+    return s;
+  }
+
+  function derive(st){
+    const pool = Array.isArray(st.pool) ? st.pool : [];
+    const fmt = st.format || "bo3";
+    const actions = Array.isArray(st.actions) ? st.actions : [];
+    const seq = buildSequence(fmt, pool.length);
+    const info = {};
+    pool.forEach(m => info[m.id] = {status:"open"});
+    let pickNo = 0;
+    for (const a of actions){
+      if (!info[a.mapId]) continue;
+      if (a.t === "ban") info[a.mapId] = {status:"banned", team:a.team};
+      else if (a.t === "pick") info[a.mapId] = {status:"picked", team:a.team, order:++pickNo};
+      else if (a.t === "side") info[a.mapId].side = {team:a.team, side:a.side};
+    }
+    const open = pool.filter(m => info[m.id].status === "open");
+    let deciderId = null;
+    if (seq.length && open.length === 1 && actions.filter(a=>a.t!=="side").length === pool.length - 1){
+      deciderId = open[0].id;
+      const sideA = actions.find(a => a.t==="side" && a.mapId===deciderId);
+      info[deciderId] = {status:"decider", order:pickNo+1, side: sideA ? {team:sideA.team, side:sideA.side} : undefined};
+    }
+    const idx = actions.length;
+    const step = seq[idx] || null;
+    let target = null;
+    if (step && step.t === "side"){
+      if (step.map === "decider") target = deciderId;
+      else { const lp = [...actions].reverse().find(a => a.t === "pick"); target = lp ? lp.mapId : null; }
+    }
+    const both = bothIn(st), tossed = flipped(st);
+    return {pool, fmt, actions, seq, info, step, idx, target, deciderId, both, tossed,
+            seated: both && tossed, done: seq.length>0 && !step, enough: seq.length>0};
+  }
+
+  // ---------- topo art ----------
+  const topoCache = {};
+  function topo(seed){
+    if (topoCache[seed]) return topoCache[seed];
+    let s = 0; for (const c of seed) s = (s*31 + c.charCodeAt(0)) >>> 0;
+    const r = () => (s = (s*1664525 + 1013904223) >>> 0) / 4294967296;
+    let paths = "";
+    for (let c=0;c<3;c++){
+      const cx=r()*300, cy=r()*400, ph=[r()*6.3,r()*6.3,r()*6.3], rings=5+Math.floor(r()*4);
+      for (let k=1;k<=rings;k++){
+        let d=""; const base=k*21;
+        for (let i=0;i<=56;i++){
+          const a=i/56*Math.PI*2;
+          const rr=base*(1+.18*Math.sin(3*a+ph[0])+.1*Math.sin(5*a+ph[1]+k*.35)+.06*Math.sin(2*a+ph[2]));
+          d+=(i?"L":"M")+(cx+Math.cos(a)*rr).toFixed(1)+" "+(cy+Math.sin(a)*rr*1.12).toFixed(1);
+        }
+        paths+=`<path d="${d}Z"/>`;
+      }
+    }
+    return topoCache[seed] = `<svg class="topo" viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.2">${paths}</g></svg>`;
+  }
+
+  // ---------- rendering ----------
+  function renderMeta(){
+    const bits = [];
+    if (S.code && S.ready && !S.noSync){
+      bits.push(`<span class="pill"><span class="live-dot"></span>Live</span>`);
+      bits.push(`<button class="btn share" data-act="share" aria-label="Copy share link to this lobby"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.6 2.6 0 013.7 3.7L10.7 8.2M9 11.5l-1.2 1.2a2.6 2.6 0 01-3.7-3.7L5.3 7.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>Share link</button>`);
+    }
+    if (S.watchers > 0) bits.push(`<span>${S.watchers} ${S.watchers===1?"viewer":"viewers"} on this page</span>`);
+    if (S.code && S.state){
+      const slot = mySlot(S.state);
+      bits.push(`<span>${slot ? "You're playing for " + esc(seatName(S.state, slot)) : "You're spectating"}</span>`);
+    }
+    $("#meta").innerHTML = bits.join("");
+  }
+
+  function focusInside(el){ return el && el.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName); }
+
+  function render(){
+    renderMeta();
+    const app = $("#app");
+    if (S.noSync){
+      app.innerHTML = `<div class="empty"><h2>Live sync isn't set up</h2><p>Add your Firebase config near the top of index.html, then reload. Picks and bans sync between devices through it.</p></div>`;
+      return;
+    }
+    if (!S.code){ renderHome(); return; }
+    if (!S.ready) return;
+    if (!S.exists){
+      app.innerHTML = `<div class="empty"><h2>This lobby doesn't exist</h2><p>Ask whoever created it for a fresh link, or start a new lobby.</p><button class="btn solid" data-act="home">Back to home</button></div>`;
+      return;
+    }
+    if (!$("#board")){
+      app.innerHTML = `
+        <section class="lobbybar" aria-label="Lobby">
+          <button class="btn ghost" data-act="home">Home</button>
+        </section>
+        <section class="board" id="board" aria-label="Teams"></section>
+        <section class="banner" id="banner" aria-live="polite"></section>
+        <nav class="track" id="track" aria-label="Veto order"></nav>
+        <section class="grid" id="grid" aria-label="Map pool"></section>
+        <section id="plan"></section>
+        <div id="orgSlot"></div>`;
+    }
+    const st = S.state, d = derive(st), seat = mySeat(st);
+    if (S.selected && (!d.step || d.step.t==="side" || !d.info[S.selected] || d.info[S.selected].status!=="open")) S.selected = null;
+    renderBoard(st, d, seat);
+    renderBanner(st, d, seat);
+    renderTrack(st, d);
+    renderGrid(st, d, seat);
+    renderPlan(st, d);
+    renderOrg(st, d);
+  }
+
+  function renderHome(){
+    const app = $("#app");
+    if (!S.homeReady){ app.innerHTML = `<div class="empty"><h2>Connecting</h2><p>Loading lobbies.</p></div>`; return; }
+    const recent = getRecent();
+    const canCreate = S.canWrite !== false;
+    const when = t => { try { return new Date(t).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}); } catch(e){ return ""; } };
+    const xIcon = `<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>`;
+    app.innerHTML = `
+      <section class="home">
+        <div class="home-card">
+          <h2>Start a veto</h2>
+          <p>Create a lobby, then send its link to both team captains and anyone who wants to watch.</p>
+          <button class="btn solid big" data-act="createlobby" ${canCreate?"":"disabled"}>Create lobby</button>
+          ${canCreate?"":`<p class="note">You have view-only access. Ask the page owner for Contributor access to create lobbies.</p>`}
+          <p class="note">Got a lobby link from someone? Open it to join.</p>
+        </div>
+      </section>
+      ${recent.length?`<section class="recent"><div class="recent-head"><h3>Your recent lobbies</h3><button class="btn danger small" data-act="clearrecent">Delete all</button></div>
+        <ul class="recent-list">${recent.map(r=>`<li>
+          <button class="recent-open" data-act="open" data-code="${esc(r.id)}"><span class="rl">${esc(r.label)}</span><span class="rt">${esc(when(r.at))}</span></button>
+          <button class="chip-x" data-act="forget" data-code="${esc(r.id)}" aria-label="Delete ${esc(r.label)} from recent lobbies" title="Delete from recent">${xIcon}</button>
+        </li>`).join("")}</ul>
+        <p class="note">Deleting only removes lobbies from this list on this device. The lobbies stay open for anyone with the link.</p></section>`:""}`;
+  }
+
+  const CODE_CHARS = "abcdefghjkmnpqrstuvwxyz23456789";
+  function genCode(){
+    const a = new Uint32Array(12);
+    try { crypto.getRandomValues(a); } catch(e){ for (let i=0;i<12;i++) a[i] = Math.floor(Math.random()*4294967296); }
+    return Array.from(a, n => CODE_CHARS[n % CODE_CHARS.length]).join("");
+  }
+  // Lobby ids: new ones are 12 lowercase characters; older 5-character ones still open
+  const cleanCode = s => { const v = String(s||"").replace(/[^A-Za-z0-9]/g,""); return /^[A-Za-z0-9]{5,16}$/.test(v) ? v : ""; };
+  function getRecent(){
+    try {
+      return JSON.parse(localStorage.getItem("veto-recent")||"[]")
+        .map(r => typeof r === "string" ? {id:r, label:"", at:0} : r)
+        .filter(r => r && cleanCode(r.id))
+        .map(r => ({...r, label: fixLabel(r.label)}));
+    } catch(e){ return []; }
+  }
+  function saveRecent(list){ try { localStorage.setItem("veto-recent", JSON.stringify(list.slice(0,8))); } catch(e){} }
+  function remember(id, label){
+    const list = getRecent(), old = list.find(r => r.id === id);
+    const entry = {id, label: label ?? (old && old.label) ?? "", at: old && label !== undefined ? old.at : Date.now()};
+    if (old && label !== undefined && old.label === label) return;
+    saveRecent([entry, ...list.filter(r => r.id !== id)]);
+  }
+  function forget(id){ saveRecent(getRecent().filter(r => r.id !== id)); }
+  // "Team A name VS Team B name": follows the coin toss once it has happened, seat order before that
+  function lobbyLabel(st){
+    const a = flipped(st) ? teamRec(st,"A").name : seatRec(st,"1").name;
+    const b = flipped(st) ? teamRec(st,"B").name : seatRec(st,"2").name;
+    return `${a || "Team A"} VS ${b || "Team B"}`;
+  }
+  // Tidy labels saved by the previous version
+  function fixLabel(l){
+    if (!l || l === "Waiting for teams") return "Team A VS Team B";
+    if (/ vs open seat$/.test(l)) return l.replace(/ vs open seat$/, " VS Team B");
+    return l.replace(/ vs /, " VS ");
+  }
+  function setHash(v){ try { history.replaceState(null, "", location.pathname + (v ? "?lobby=" + v : "")); } catch(e){} }
+
+  async function createLobby(){
+    let created = null;
+    await write(async () => {
+      for (let i=0;i<6 && !created;i++){
+        const code = genCode();
+        const ref = S.db.doc("lobbies/" + code);
+        const snap = await ref.get();
+        if (snap.exists) continue;
+        await ref.set({...defaultState(), code, host:{device:S.device, uid:S.uid}, createdAt:Date.now()});
+        created = code;
+      }
+      if (!created) toast("Couldn't find a free code. Try again.");
+    }, "Creating the lobby");
+    if (created) enterLobby(created);
+  }
+
+  async function openByCode(raw){
+    const code = cleanCode(raw);
+    if (!code){ toast("That lobby link isn't valid."); render(); return; }
+    try {
+      const snap = await S.db.doc("lobbies/" + code).get();
+      if (!snap.exists){ forget(code); toast("That lobby link doesn't work anymore."); render(); return; }
+      enterLobby(code);
+    } catch(e){ toast("Couldn't open that lobby. Try again."); }
+  }
+
+  function leaveLobby(){
+    if (S.unsub){ S.unsub(); S.unsub = null; }
+    if (S.lobbyRoom){ S.lobbyRoom.leave().catch(()=>{}); S.lobbyRoom = null; }
+    const t = $("#toss"); if (t) t.remove();
+    S.code = null; S.ref = null; S.lockRef = null; S.state = null; S.exists = null;
+    S.ready = false; S.watchers = 0; S.selected = null; S.seenFlipAt = undefined;
+  }
+
+  function enterLobby(code){
+    leaveLobby();
+    S.code = code;
+    S.ref = S.db.doc("lobbies/" + code);
+    S.lockRef = S.db.doc("locks/" + code);
+    remember(code); setHash(code);
+    $("#app").innerHTML = `<div class="empty"><h2>Opening lobby ${esc(code)}</h2><p>Connecting to the live veto.</p></div>`;
+    renderMeta();
+    S.unsub = S.ref.onSnapshot(snap => {
+      if (S.code !== code) return;
+      S.exists = snap.exists;
+      S.state = snap.exists ? snap.data() : null;
+      S.ready = true;
+      render();
+      if (S.state){ checkToss(S.state); remember(code, lobbyLabel(S.state)); }
+    }, err => {
+      if (err && err.code === "revoked"){ S.noSync = true; render(); }
+      else toast("Live updates paused. Reload the page to reconnect.");
+    });
+    if (S.room){
+      S.room.join("lobby-" + code.toLowerCase()).then(r => {
+        if (S.code !== code){ r.leave().catch(()=>{}); return; }
+        S.lobbyRoom = r;
+        const count = () => { if (S.lobbyRoom !== r) return; S.watchers = r.peers().filter(p => p.kind === "viewer").length; renderMeta(); };
+        r.onPeers(count, () => {});
+        count();
+      }).catch(()=>{});
+    }
+  }
+
+  function goHome(){ leaveLobby(); setHash(""); render(); window.scrollTo(0,0); }
+
+  const SHARE_URL = location.origin + location.pathname;
+  async function shareLink(){
+    const text = SHARE_URL + "?lobby=" + S.code;
+    try { await navigator.clipboard.writeText(text); toast("Lobby link copied."); return; } catch(e){}
+    // Clipboard blocked: show the link so it can be copied by hand
+    const old = $("#ask"); if (old) old.remove();
+    const wrap = document.createElement("div");
+    wrap.className = "toss"; wrap.id = "ask";
+    wrap.setAttribute("role","dialog"); wrap.setAttribute("aria-modal","true"); wrap.setAttribute("aria-labelledby","shareT");
+    wrap.innerHTML = `<div class="toss-card ask-card"><h2 id="shareT">Share this lobby</h2>
+      <p class="sub">Send this link to players and spectators.</p>
+      <textarea class="share-box" readonly rows="2"></textarea>
+      <div class="ask-row"><button class="btn solid" data-ans="done">Done</button></div></div>`;
+    const box = wrap.querySelector("textarea"); box.value = text;
+    const close = () => { wrap.remove(); document.removeEventListener("keydown", onKey, true); };
+    const onKey = e => { if (e.key === "Escape"){ e.stopPropagation(); close(); } };
+    wrap.addEventListener("click", e => { if (e.target === wrap || e.target.closest("[data-ans]")) close(); });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(wrap);
+    box.focus(); box.select();
+  }
+
+  function renderBoard(st, d, seat){
+    const el = $("#board");
+    if (focusInside(el)){ S.pendingPlates = true; return; }
+    S.pendingPlates = false;
+    const me = mySlot(st);
+    const plate = key => {
+      const slot = d.tossed ? teamSlot(st, key) : key;
+      const cls = d.tossed ? key : "N";
+      const rec = seatRec(st, slot);
+      const mine = me === slot;
+      const taken = !!rec.device;
+      const turn = d.seated && d.step && d.step.team === key;
+      const label = d.tossed ? (key === "A" ? "Team A, won the toss" : "Team B") : "Seat " + slot;
+      let nameHtml, seatLine = "", row = "";
+      if (mine && d.actions.length === 0){
+        nameHtml = `<input class="tname-input" data-field="teamname" data-slot="${slot}" value="${esc(rec.name)}" maxlength="24" aria-label="Team name">`;
+      } else if (rec.name){
+        nameHtml = `<h3 class="tname">${esc(rec.name)}</h3>`;
+      } else {
+        nameHtml = `<h3 class="tname open">Open seat</h3>`;
+      }
+      if (mine){
+        seatLine = `<strong>This device controls this team</strong>`;
+        row = `<button class="btn danger" data-act="leave" data-slot="${slot}">Leave seat</button>`;
+      } else if (taken){
+        seatLine = `Joined on another device`;
+        if (isHost()) row = `<button class="link" data-act="free" data-slot="${slot}">Free this seat</button>`;
+      } else if (S.canWrite === false){
+        seatLine = `You have view-only access, so you can watch but not join.`;
+      } else if (!me){
+        const takeover = rec.name ? `Take over ${esc(rec.name)}` : `Join`;
+        seatLine = rec.name ? `This team's device left. Take over to keep playing.` : `Enter your team name to join.`;
+        row = `<form class="join" data-slot="${slot}">
+          <input name="team" required maxlength="24" placeholder="Your team name" value="${esc(rec.name)}" aria-label="Team name for seat ${slot}">
+          <button class="btn solid" type="submit">${takeover}</button></form>`;
+      } else {
+        seatLine = `Waiting for an opponent to join.`;
+      }
+      let tally = "";
+      if (d.tossed){
+        const bans = d.actions.filter(a=>a.t==="ban"&&a.team===key).length;
+        const picks = d.actions.filter(a=>a.t==="pick"&&a.team===key).length;
+        tally = `<div class="tally">${bans} ${bans===1?"ban":"bans"}, ${picks} ${picks===1?"pick":"picks"}</div>`;
+      }
+      return `<div class="plate ${cls}${turn?" turn":""}">
+        <div class="lbl">${label}</div>
+        ${nameHtml}
+        <div class="seat">${seatLine}</div>
+        ${tally}
+        ${row?`<div class="row">${row}</div>`:""}
+      </div>`;
+    };
+    const keys = d.tossed ? ["A","B"] : ["1","2"];
+    const mid = `<div class="vs"><div class="fmt">${FORMAT_LABEL[d.fmt]||"Bo3"}</div><small>${d.pool.length} maps in pool</small>${d.tossed?`<div class="toss-won">${esc(teamName(st,"A"))} won the toss</div>`:""}</div>`;
+    el.innerHTML = plate(keys[0]) + mid + plate(keys[1]);
+  }
+
+  function renderBanner(st, d, seat){
+    const el = $("#banner");
+    let h = "", p = "", right = "", tc = "";
+    const me = mySlot(st);
+    if (!d.enough){
+      h = `Map pool too small`;
+      p = `${FORMAT_LABEL[d.fmt]} needs at least ${MIN_MAPS[d.fmt]} maps. The organizer can add more below.`;
+    } else if (!d.both){
+      h = `Waiting for both teams`;
+      p = me ? `You're in as ${esc(seatName(st, me))}. A coin toss decides Team A and Team B once your opponent joins.`
+             : `Each team joins from its own device with its team name. A coin toss then decides who is Team A.`;
+    } else if (!d.tossed){
+      h = `Both teams are in`;
+      p = `Flip the coin to decide Team A and Team B.`;
+      if (me || isHost()) right = `<button class="btn solid" data-act="flip">Flip the coin</button>`;
+    } else if (d.done){
+      h = `Veto complete`;
+      p = `The match plan is below.`;
+    } else {
+      const s = d.step, who = teamName(st, s.team);
+      tc = s.team === "A" ? "var(--a)" : "var(--b)";
+      const verb = s.t === "ban" ? "ban a map" : s.t === "pick" ? "pick a map" : "choose a starting side";
+      const tgt = d.target ? (d.pool.find(m=>m.id===d.target)||{}).name : "";
+      if (seat === s.team){
+        h = `Your turn: <span class="who">${verb}</span>`;
+        if (s.t === "side"){
+          p = `Starting side for ${esc(tgt)}${s.map==="decider"?" (decider)":""}.`;
+          right = `<div class="sidepick"><button class="btn team" data-act="side" data-side="attack">Attack</button><button class="btn team" data-act="side" data-side="defend">Defend</button></div>`;
+        } else if (S.selected){
+          const m = d.pool.find(x=>x.id===S.selected);
+          p = `Selected ${esc(m && m.name)}. Confirm to lock it in.`;
+          right = `<div class="confirm"><button class="btn ghost" data-act="deselect">Cancel</button><button class="btn team" data-act="confirm">${s.t==="ban"?"Ban":"Pick"} ${esc(m && m.name)}</button></div>`;
+        } else {
+          p = `Tap a map, then confirm.`;
+        }
+      } else {
+        h = `<span class="who">${esc(who)}</span> to ${verb}`;
+        p = s.t === "side" ? `Deciding the starting side on ${esc(tgt)}.` : (seat ? `Waiting for your opponent.` : `Watching live.`);
+      }
+    }
+    el.style.setProperty("--tc", tc || "var(--ink)");
+    el.innerHTML = `<div><h2>${h}</h2><p>${p}</p></div>${right}`;
+  }
+
+  function renderTrack(st, d){
+    const el = $("#track");
+    if (!d.seq.length || !d.tossed){ el.innerHTML = ""; return; }
+    const nameOf = id => esc((d.pool.find(m=>m.id===id)||{}).name || "");
+    el.innerHTML = d.seq.map((s,i) => {
+      const a = d.actions[i];
+      const label = s.t==="ban"?"Ban":s.t==="pick"?"Pick":(s.map==="decider"?"Decider side":"Side");
+      let v = "";
+      if (a) v = s.t==="side" ? (a.side==="attack"?"Attack":"Defend") : nameOf(a.mapId);
+      const cls = ["step", s.team, a?"done":"", (i===d.idx && d.seated)?"now":"", s.map==="decider"?"decider":""].join(" ");
+      return `<div class="${cls}"><div class="k"><span>${i+1}</span><b>${esc(teamName(st,s.team))}</b></div><div class="k">${label}</div>${v?`<div class="v">${v}</div>`:""}</div>`;
+    }).join("");
+    const now = el.querySelector(".now");
+    if (now) now.scrollIntoView({block:"nearest", inline:"center", behavior:"smooth"});
+  }
+
+  function renderGrid(st, d, seat){
+    const el = $("#grid");
+    const canChoose = d.seated && d.step && d.step.t !== "side" && seat === d.step.team;
+    el.innerHTML = d.pool.map(m => {
+      const inf = d.info[m.id] || {status:"open"};
+      const hue = Number.isFinite(m.hue) ? m.hue : 200;
+      let cls = "card", tag = "", side = "";
+      if (inf.status === "banned"){ cls += " banned"; tag = `<span>Banned by ${esc(teamName(st,inf.team))}</span>`; }
+      else if (inf.status === "picked"){ cls += ` picked ${inf.team}`; tag = `<span>Map ${inf.order}</span><span>${esc(teamName(st,inf.team))}'s pick</span>`; }
+      else if (inf.status === "decider"){ cls += " decider"; tag = `<span>Map ${inf.order}</span><span>Decider</span>`; }
+      if (inf.side) side = `<span class="side">${esc(teamName(st,inf.side.team))} starts ${inf.side.side==="attack"?"Attack":"Defend"}</span>`;
+      const selectable = canChoose && inf.status === "open";
+      if (selectable) cls += ` sel ${seat}`;
+      if (S.selected === m.id) cls += " chosen";
+      const lbl = `${m.name}${inf.status!=="open"?", "+inf.status:""}`;
+      return `<button class="${cls}" style="--h:${hue}" data-act="select" data-map="${esc(m.id)}" ${selectable?"":"disabled"} aria-label="${esc(lbl)}" aria-pressed="${S.selected===m.id}">
+        ${topo(m.id)}${tag?`<div class="tag">${tag}</div>`:""}${side}<span class="nm">${esc(m.name)}</span></button>`;
+    }).join("");
+  }
+
+  function renderPlan(st, d){
+    const el = $("#plan");
+    const played = d.pool.filter(m => ["picked","decider"].includes((d.info[m.id]||{}).status))
+      .sort((a,b)=>d.info[a.id].order - d.info[b.id].order);
+    if (!played.length){ el.innerHTML = ""; return; }
+    el.innerHTML = `<div class="plan"><h3>Match plan</h3><ol>${played.map(m => {
+      const inf = d.info[m.id];
+      const by = inf.status==="decider" ? "Decider" : `<b class="c${inf.team}">${esc(teamName(st,inf.team))}</b> picked`;
+      const sd = inf.side ? `<b class="c${inf.side.team}">${esc(teamName(st,inf.side.team))}</b> starts ${inf.side.side==="attack"?"Attack":"Defend"}` : `Side to be chosen`;
+      return `<li><span class="no">Map ${inf.order}</span><span class="mp">${esc(m.name)}</span><span class="info">${by}. ${sd}.</span></li>`;
+    }).join("")}</ol></div>`;
+  }
+
+  function renderOrg(st, d){
+    const slot = $("#orgSlot");
+    if (!isHost()){ slot.innerHTML = ""; return; }
+    const existing = slot.querySelector("details");
+    if (focusInside(existing)){ S.pendingOrg = true; return; }
+    S.pendingOrg = false;
+    const open = existing ? existing.open : false;
+    const locked = d.actions.length > 0;
+    const rows = d.pool.map(m => `
+      <div class="pool-row" style="--h:${Number.isFinite(m.hue)?m.hue:200}">
+        <span class="swatch" aria-hidden="true"></span>
+        <input type="text" value="${esc(m.name)}" data-field="mapname" data-map="${esc(m.id)}" maxlength="20" aria-label="Map name" ${locked?"disabled":""}>
+        <input type="range" min="0" max="359" value="${Number.isFinite(m.hue)?m.hue:200}" data-field="maphue" data-map="${esc(m.id)}" aria-label="Map colour" ${locked?"disabled":""}>
+        <button class="btn ghost" data-act="removemap" data-map="${esc(m.id)}" ${locked?"disabled":""} aria-label="Remove ${esc(m.name)}">Remove</button>
+      </div>`).join("");
+    slot.innerHTML = `<details class="org" ${open?"open":""}>
+      <summary>Host controls</summary>
+      <div class="org-body">
+        <div>
+          <h4>Format</h4>
+          <div class="seg" role="group" aria-label="Match format">
+            ${["bo1","bo3","bo5"].map(f=>`<button data-act="format" data-fmt="${f}" aria-pressed="${d.fmt===f}" ${locked?"disabled":""}>${FORMAT_LABEL[f]}</button>`).join("")}
+          </div>
+        </div>
+        <div>
+          <h4>Map pool</h4>
+          ${locked?`<p class="note" style="margin-bottom:8px">The veto has started. Reset it to change the format or maps.</p>`:""}
+          <div class="pool">${rows}</div>
+          <div class="org-actions" style="margin-top:10px">
+            <button class="btn" data-act="addmap" ${locked||d.pool.length>=14?"disabled":""}>Add map</button>
+          </div>
+        </div>
+        <div>
+          <h4>Room</h4>
+          <div class="org-actions">
+            <button class="btn" data-act="reflip" ${d.both && !locked?"":"disabled"}>Flip the coin again</button>
+            <button class="btn" data-act="reset" ${d.actions.length?"":"disabled"}>Reset veto</button>
+            <button class="btn" data-act="freeall">Start over with new teams</button>
+          </div>
+          <p class="note" style="margin-top:8px">Anyone with the lobby link can watch. The first two devices to join become the teams.</p>
+        </div>
+      </div></details>`;
+  }
+
+  // ---------- coin toss overlay ----------
+  function showToss(st){
+    const old = $("#toss"); if (old) old.remove();
+    const w = st.flip.winner, n1 = seatName(st,"1"), n2 = seatName(st,"2");
+    const winner = seatName(st, w), loser = seatName(st, otherSlot(w));
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const wrap = document.createElement("div");
+    wrap.className = "toss"; wrap.id = "toss";
+    wrap.setAttribute("role","dialog"); wrap.setAttribute("aria-modal","true"); wrap.setAttribute("aria-labelledby","tossRes");
+    wrap.innerHTML = `<div class="toss-card">
+      <p class="toss-k">Coin toss</p>
+      <div class="coin-stage"><div class="coin-hop"><div class="coin" style="--end:${w==="1"?1800:1980}deg">
+        <div class="face f1"><span>${esc(n1)}</span></div><div class="face f2"><span>${esc(n2)}</span></div>
+      </div></div></div>
+      <h2 class="toss-res" id="tossRes" ${reduce?"":"hidden"}>${esc(winner)} wins the toss</h2>
+      <p class="sub" ${reduce?"":"hidden"}>${esc(winner)} is Team A and goes first in the veto. ${esc(loser)} is Team B.</p>
+      <button class="btn solid" data-act="closetoss" ${reduce?"":"hidden"}>Go to the veto</button>
+    </div>`;
+    document.body.appendChild(wrap);
+    const reveal = () => wrap.querySelectorAll("[hidden]").forEach(x => x.hidden = false);
+    if (!reduce){
+      wrap.querySelector(".coin").addEventListener("animationend", () => { reveal(); wrap.querySelector("button").focus(); }, {once:true});
+      setTimeout(reveal, 3200);
+    } else wrap.querySelector("button").focus();
+    wrap.addEventListener("click", e => { if (e.target === wrap) wrap.remove(); });
+  }
+  function checkToss(st){
+    const at = st && st.flip && st.flip.winner ? st.flip.at : null;
+    if (S.seenFlipAt === undefined){
+      // first snapshot: only animate a toss that just happened
+      S.seenFlipAt = at;
+      if (at && Math.abs(Date.now() - at) < 20000) showToss(st);
+      return;
+    }
+    if (at && at !== S.seenFlipAt){ S.seenFlipAt = at; showToss(st); }
+    else if (!at){ S.seenFlipAt = null; const o = $("#toss"); if (o) o.remove(); }
+  }
+
+  // ---------- writes ----------
+  async function write(fn, label){
+    if (S.busy) return false;
+    S.busy = true;
+    try { await fn(); return true; }
+    catch(e){
+      if (e && e.code === "invalid_argument" && S.canWrite !== true){ S.canWrite = false; toast("You have view-only access, so you can watch but not play."); render(); }
+      else if (e && e.code === "unavailable") toast("Connection hiccup. Try that again.");
+      else toast((label||"That change") + " didn't save. Try again.");
+      return false;
+    } finally { S.busy = false; }
+  }
+  async function freshState(){ const s = await S.ref.get(); return s.exists ? s.data() : null; }
+
+  async function join(slot, name){
+    name = (name || "").trim().slice(0,24);
+    if (!name){ toast("Enter a team name to join."); return; }
+    await write(async () => {
+      const lease = await S.lockRef.acquire({holder:S.device, ttlMs:4000});
+      if (!lease.acquired){ toast("Someone else is joining right now. Try again in a moment."); return; }
+      const st = await freshState();
+      if (!st) return;
+      if (mySlot(st)){ toast("This device has already joined."); return; }
+      if (seatRec(st, slot).device){ toast("That seat was just taken."); return; }
+      const oName = seatRec(st, otherSlot(slot)).name;
+      if (oName && oName.toLowerCase() === name.toLowerCase() && seatRec(st, otherSlot(slot)).device){ toast("The other team already uses that name."); return; }
+      const patch = {seats:{[slot]:{name, device:S.device, uid:S.uid}}, updatedAt:Date.now()};
+      // Second team in and no toss yet: flip the coin in the same write
+      if (seatRec(st, otherSlot(slot)).device && !flipped(st)) patch.flip = {winner:coin(), at:Date.now()};
+      await S.ref.update(patch);
+    }, "Joining");
+  }
+
+  async function freeSeat(slot){
+    await write(async () => {
+      const st = await freshState(); if (!st) return;
+      const started = (st.actions||[]).length > 0;
+      // Before the veto starts, a leaving team is replaced by a new one and a new toss happens.
+      // Once it has started, the team name stays so another device can take over.
+      const patch = started
+        ? {seats:{[slot]:{device:null, uid:null}}, updatedAt:Date.now()}
+        : {seats:{[slot]:{...EMPTY_SEAT}}, flip:null, updatedAt:Date.now()};
+      await S.ref.update(patch);
+    }, "Leaving the seat");
+  }
+
+  async function act(action){
+    await write(async () => {
+      const st = await freshState();
+      if (!st) return;
+      const d = derive(st);
+      if (d.actions.length !== (S.state.actions||[]).length || !d.step || d.step.team !== mySeat(st) || d.step.t !== action.t || !d.seated){
+        toast("The veto moved on. Check the board."); return;
+      }
+      if (action.t !== "side" && (d.info[action.mapId]||{}).status !== "open"){ toast("That map is no longer available."); return; }
+      if (action.t === "side") action.mapId = d.target;
+      await S.ref.update({actions:[...d.actions, {...action, team:d.step.team, at:Date.now()}], updatedAt:Date.now()});
+      S.selected = null;
+    }, "Your choice");
+  }
+
+  async function flipCoin(){
+    await write(async () => {
+      const st = await freshState(); if (!st) return;
+      if (!bothIn(st)){ toast("Both teams need to join first."); return; }
+      if ((st.actions||[]).length){ toast("Reset the veto before flipping again."); return; }
+      await S.ref.update({flip:{winner:coin(), at:Date.now()}, updatedAt:Date.now()});
+    }, "The coin toss");
+  }
+
+  function defaultState(){
+    return {
+      pool: DEFAULT_MAPS.map((n,i) => ({id:uid6(), name:n, hue:HUES[i%HUES.length]})),
+      format:"bo3",
+      seats:{"1":{...EMPTY_SEAT}, "2":{...EMPTY_SEAT}},
+      flip:null, actions:[], updatedAt:Date.now()
+    };
+  }
+
+  async function setPool(mut){
+    const st = await freshState(); if (!st) return;
+    if ((st.actions||[]).length){ toast("Reset the veto before editing maps."); return; }
+    const pool = (st.pool||[]).map(m => ({...m}));
+    mut(pool);
+    await S.ref.update({pool, updatedAt:Date.now()});
+  }
+
+  // ---------- in-page confirm (browser dialogs are blocked in the embedded page) ----------
+  function ask(title, body, okLabel){
+    return new Promise(resolve => {
+      const old = $("#ask"); if (old) old.remove();
+      const prev = document.activeElement;
+      const wrap = document.createElement("div");
+      wrap.className = "toss"; wrap.id = "ask";
+      wrap.setAttribute("role","alertdialog"); wrap.setAttribute("aria-modal","true"); wrap.setAttribute("aria-labelledby","askT");
+      wrap.innerHTML = `<div class="toss-card ask-card"><h2 id="askT"></h2><p class="sub"></p>
+        <div class="ask-row"><button class="btn ghost" data-ans="no">Cancel</button><button class="btn danger" data-ans="yes"></button></div></div>`;
+      wrap.querySelector("#askT").textContent = title;
+      wrap.querySelector(".sub").textContent = body;
+      wrap.querySelector("[data-ans=yes]").textContent = okLabel;
+      const done = v => { wrap.remove(); document.removeEventListener("keydown", onKey, true); if (prev && prev.focus) prev.focus(); resolve(v); };
+      const onKey = e => { if (e.key === "Escape"){ e.stopPropagation(); done(false); } };
+      wrap.addEventListener("click", e => {
+        if (e.target === wrap) return done(false);
+        const b = e.target.closest("[data-ans]"); if (b) done(b.dataset.ans === "yes");
+      });
+      document.addEventListener("keydown", onKey, true);
+      document.body.appendChild(wrap);
+      wrap.querySelector("[data-ans=no]").focus();
+    });
+  }
+
+  // ---------- events ----------
+  document.addEventListener("submit", e => {
+    const f = e.target.closest("form.join");
+    if (!f) return;
+    e.preventDefault();
+    join(f.dataset.slot, f.querySelector("input").value);
+  });
+
+  document.addEventListener("click", e => {
+    const b = e.target.closest("[data-act]");
+    if (!b || b.disabled) return;
+    const a = b.dataset.act, slot = b.dataset.slot;
+    if (a === "createlobby") createLobby();
+    else if (a === "open") openByCode(b.dataset.code);
+    else if (a === "home") goHome();
+    else if (a === "share") shareLink();
+    else if (a === "forget"){ forget(b.dataset.code); render(); const n = $(".chip-x") || $("[data-act=createlobby]"); if (n) n.focus(); }
+    else if (a === "clearrecent") ask("Delete all recent lobbies?", "They're removed from this list on this device. The lobbies stay open for anyone with the code.", "Delete all").then(ok => { if (!ok) return; try { localStorage.removeItem("veto-recent"); } catch(e){} render(); });
+    else if (a === "leave"){ ask("Leave this seat?", "Another device can then join in your place.", "Leave seat").then(ok => ok && freeSeat(slot)); }
+    else if (a === "free"){ ask(`Free the ${seatName(S.state,slot)} seat?`, "The device holding it loses control.", "Free seat").then(ok => ok && freeSeat(slot)); }
+    else if (a === "flip") flipCoin();
+    else if (a === "reflip"){ ask("Flip the coin again?", "Team A and Team B may swap.", "Flip again").then(ok => ok && flipCoin()); }
+    else if (a === "closetoss"){ const o = $("#toss"); if (o) o.remove(); }
+    else if (a === "select"){ S.selected = S.selected === b.dataset.map ? null : b.dataset.map; render(); }
+    else if (a === "deselect"){ S.selected = null; render(); }
+    else if (a === "confirm"){ const d = derive(S.state); if (S.selected && d.step) act({t:d.step.t, mapId:S.selected}); }
+    else if (a === "side") act({t:"side", side:b.dataset.side});
+    else if (a === "format") write(async () => {
+      const st = await freshState(); if (!st) return;
+      if ((st.actions||[]).length){ toast("Reset the veto before changing the format."); return; }
+      await S.ref.update({format:b.dataset.fmt, updatedAt:Date.now()});
+    }, "Format change");
+    else if (a === "addmap") write(() => setPool(p => p.push({id:uid6(), name:"New map", hue:HUES[p.length%HUES.length]})), "Adding the map");
+    else if (a === "removemap") write(() => setPool(p => { const i = p.findIndex(m=>m.id===b.dataset.map); if (i>=0) p.splice(i,1); }), "Removing the map");
+    else if (a === "reset"){ ask("Reset the veto?", "All bans, picks and sides are cleared. Teams and the coin toss stay.", "Reset veto").then(ok => ok && write(() => S.ref.update({actions:[], updatedAt:Date.now()}), "Reset")); }
+    else if (a === "freeall"){ ask("Start over with new teams?", "Both seats, the coin toss and the veto are cleared.", "Start over").then(ok => ok && write(() => S.ref.update({seats:{"1":{...EMPTY_SEAT},"2":{...EMPTY_SEAT}}, flip:null, actions:[], updatedAt:Date.now()}), "Starting over")); }
+  });
+
+  document.addEventListener("change", e => {
+    const f = e.target.dataset && e.target.dataset.field;
+    if (!f) return;
+    const val = e.target.value;
+    if (f === "teamname"){
+      const slot = e.target.dataset.slot, name = val.trim().slice(0,24);
+      if (!name){ toast("Team name can't be empty."); render(); return; }
+      write(() => S.ref.update({seats:{[slot]:{name}}, updatedAt:Date.now()}), "Renaming");
+    } else if (f === "mapname"){
+      const id = e.target.dataset.map, name = val.trim().slice(0,20) || "Unnamed map";
+      write(() => setPool(p => { const m = p.find(x=>x.id===id); if (m) m.name = name; }), "Renaming the map");
+    } else if (f === "maphue"){
+      const id = e.target.dataset.map, hue = Math.max(0, Math.min(359, parseInt(val,10)||0));
+      write(() => setPool(p => { const m = p.find(x=>x.id===id); if (m) m.hue = hue; }), "Changing the colour");
+    }
+  });
+  document.addEventListener("input", e => {
+    if (e.target.dataset && e.target.dataset.field === "maphue"){
+      e.target.closest(".pool-row").style.setProperty("--h", e.target.value);
+    }
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Enter" && e.target.matches && e.target.matches(".pool-row input[type=text], .tname-input")) e.target.blur();
+    if (e.key === "Escape"){ const o = $("#toss"); if (o) o.remove(); }
+  });
+  document.addEventListener("focusout", () => {
+    setTimeout(() => { if ((S.pendingOrg || S.pendingPlates) && S.state) render(); }, 0);
+  });
+
+  // ---------- Firestore adapter ----------
+  function makeDb(){
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    const fs = firebase.firestore();
+    const wrap = s => ({exists: s.exists, data: () => s.data()});
+    const err = e => ({code: e && e.code === "unavailable" ? "unavailable" : "failed", message: e && e.message});
+    return { doc(path){
+      const r = fs.doc(path);
+      return {
+        get: async () => { try { return wrap(await r.get()); } catch(e){ throw err(e); } },
+        set: async d => { try { await r.set(d); } catch(e){ throw err(e); } },
+        // merge:true deep-merges nested objects and replaces arrays, matching how the app writes
+        update: async d => { try { await r.set(d, {merge:true}); } catch(e){ throw err(e); } },
+        acquire: async () => ({acquired:true}),
+        onSnapshot: (next, onErr) => r.onSnapshot(s => next(wrap(s)), e => onErr && onErr(err(e)))
+      };
+    }};
+  }
+
+  // ---------- boot ----------
+  async function boot(){
+    if (typeof firebase === "undefined" || /^PASTE/.test(FIREBASE_CONFIG.apiKey)){ S.noSync = true; render(); return; }
+    try { S.db = makeDb(); } catch(e){ S.noSync = true; render(); return; }
+    S.uid = null; S.canEdit = false; S.canWrite = true; S.room = null;
+    S.homeReady = true;
+    let fromUrl = "";
+    try { fromUrl = cleanCode(new URLSearchParams(location.search).get("lobby")) || cleanCode((location.hash||"").slice(1)); } catch(e){}
+    if (fromUrl) openByCode(fromUrl); else render();
+  }
+  boot();
+})();
+</script>
+</body>
+</html>
